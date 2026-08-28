@@ -28,6 +28,7 @@ class MLFlowTest(unittest.TestCase):
             metadata = {
                 "version": "test",
                 "model_name": "logistic_regression",
+                "model_path": "models/titanic_model_test.joblib",
                 "search_mode": "quick",
                 "best_params": params,
                 "metrics": metrics,
@@ -35,9 +36,21 @@ class MLFlowTest(unittest.TestCase):
                 "preprocessing_info": preprocessing,
             }
             Path(directory, "titanic_model_test.json").write_text(json.dumps(metadata), encoding="utf-8")
+            Path(directory, "titanic_model_test.joblib").touch()
             self.assertEqual(
                 ml_service._find_equivalent_model(directory, "logistic_regression", "quick", params, metrics, preprocessing),
                 metadata,
+            )
+            Path(directory, "titanic_model_test.joblib").unlink()
+            self.assertIsNone(
+                ml_service._find_equivalent_model(
+                    directory,
+                    "logistic_regression",
+                    "quick",
+                    params,
+                    metrics,
+                    preprocessing,
+                )
             )
 
     def test_complete_ml_flow(self):
@@ -48,7 +61,8 @@ class MLFlowTest(unittest.TestCase):
         self.assertIn(b"Pipeline", dashboard_page.data)
         self.assertIn(b"Extra Trees", client.get("/ml/train").data)
         self.assertIn(b"Model registry", client.get("/ml/models").data)
-        self.assertEqual(client.get("/api/ml/dashboard").get_json()["total"], 891)
+        passenger_total = client.get("/api/passengers?per_page=1").get_json()["total"]
+        self.assertEqual(client.get("/api/ml/dashboard").get_json()["total"], passenger_total)
 
         response = client.post("/api/ml/train", json={"model_name": "logistic_regression", "search_mode": "quick"})
         self.assertEqual(response.status_code, 202)

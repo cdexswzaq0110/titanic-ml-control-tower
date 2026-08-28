@@ -163,7 +163,7 @@ def _train(database_path, models_dir, model_name, search_mode):
         preprocessing_info = "Median imputation, most-frequent categorical imputation, one-hot encoding, numeric scaling"
         equivalent = _find_equivalent_model(models_dir, model_name, search_mode, search.best_params_, metrics, preprocessing_info)
         if equivalent:
-            if not (models_dir / "active_model.json").exists():
+            if not _active_artifact_exists(models_dir):
                 _write_active(models_dir, equivalent)
             with _state_lock:
                 _training_state.update(status="completed", result={**equivalent, "reused": True}, error=None)
@@ -186,8 +186,7 @@ def _train(database_path, models_dir, model_name, search_mode):
             "preprocessing_info": preprocessing_info,
         }
         (models_dir / metadata_name).write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
-        active_path = models_dir / "active_model.json"
-        if not active_path.exists():
+        if not _active_artifact_exists(models_dir):
             _write_active(models_dir, metadata)
         with _state_lock:
             _training_state.update(status="completed", result=metadata, error=None)
@@ -204,8 +203,10 @@ def training_status():
 def _find_equivalent_model(models_dir, model_name, search_mode, best_params, metrics, preprocessing_info):
     for path in Path(models_dir).glob("titanic_model_*.json"):
         item = json.loads(path.read_text(encoding="utf-8"))
+        artifact = Path(models_dir) / Path(item.get("model_path", "")).name
         if (
-            item.get("model_name") == model_name
+            artifact.is_file()
+            and item.get("model_name") == model_name
             and item.get("search_mode") == search_mode
             and item.get("best_params") == best_params
             and item.get("metrics") == metrics
@@ -216,6 +217,17 @@ def _find_equivalent_model(models_dir, model_name, search_mode, best_params, met
     return None
 
 
+def _active_artifact_exists(models_dir):
+    active_path = Path(models_dir) / "active_model.json"
+    if not active_path.exists():
+        return False
+    try:
+        active = json.loads(active_path.read_text(encoding="utf-8"))
+        return (Path(models_dir) / Path(active["model_path"]).name).is_file()
+    except (KeyError, json.JSONDecodeError, TypeError):
+        return False
+
+
 def list_models(models_dir):
     models_dir = Path(models_dir)
     active = _active_metadata(models_dir, required=False)
@@ -223,6 +235,8 @@ def list_models(models_dir):
     items = []
     for path in sorted(models_dir.glob("titanic_model_*.json"), reverse=True):
         item = json.loads(path.read_text(encoding="utf-8"))
+        if not (models_dir / Path(item.get("model_path", "")).name).is_file():
+            continue
         item["active"] = item["version"] == active_version
         items.append(item)
     if items:
