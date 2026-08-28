@@ -186,11 +186,11 @@ python app.py
 - `balanced`：增加候選參數，兼顧時間與搜尋範圍
 - `full`：搜尋範圍最大，執行時間最長
 
-每次有效訓練會在 `models/` 儲存 `.joblib` Pipeline 與 `.json` metadata。metadata 包含模型名稱、版本、建立時間、最佳參數、評估指標、特徵欄位及前處理說明。完全相同的演算法、搜尋模式、參數與評估結果會重用既有模型，不再建立重複檔案。預測 API 使用 `active_model.json` 指定的模型，目前 active model 版本為 `20260701_144146_517055`。
+每次有效訓練會在 `models/` 儲存 `.joblib` Pipeline 與 `.json` metadata；二進位 `.joblib` 是可重建的本機 artifact，不由 Git 追蹤。metadata 包含模型名稱、版本、建立時間、最佳參數、評估指標、特徵欄位及前處理說明。完全相同的演算法、搜尋模式、參數與評估結果會重用既有模型，不再建立重複檔案。預測 API 使用 `active_model.json` 指定的模型，目前 active model 版本為 `20260701_144146_517055`。
 
 ## 測試
 
-測試會執行一次 Logistic Regression quick 訓練，並產生模型檔。
+`test_ml.py` 是可由 `unittest` 執行的回歸測試，會跑一次 Logistic Regression quick 訓練並產生本機模型檔；不是手動 demo script。
 
 ```bash
 # Linux / WSL
@@ -198,7 +198,7 @@ cd titanic_restful_project
 python -m unittest -v test_ml.py
 ```
 
-預期結果為 `OK`。若失敗，先確認 `my_db.db` 存在、包含 891 筆資料，且 requirements 已安裝。
+預期結果為 `OK`。若失敗，先確認 `my_db.db` 存在、API 能讀到同一份資料，且 requirements 已安裝。
 
 手動驗證順序：
 
